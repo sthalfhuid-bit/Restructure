@@ -1,0 +1,740 @@
+﻿function renderPlanning(data, text = "") {
+  AppState.setPlanningData(data);
+  AppState.setPlanningText(text);
+  const events = buildPlanningEvents(text, data);
+  renderTodayAgenda(events);
+  renderWeekOverview(events);
+  renderAgenda(events);
+  renderHolidayList(events);
+  renderPersonalAppointments(events);
+  renderRemember(events);
+  checkReminderMoments(events);
+}
+
+function addAppointment(data) {
+  const title = softenItem(String(data.title || "").trim());
+  if (!title || !data.date) return null;
+  const category = data.category || categoryFromEvent(data);
+  const type = eventTypeForCategory(data.type || appointmentTypeFromCategory(category).eventType, category);
+
+  const appointment = {
+    id: data.id || createId(),
+    title,
+    date: data.date,
+    time: data.time || "",
+    type,
+    meta: data.meta || agendaCategoryLabel(category) || typeLabel(type),
+    category,
+    reminders: data.reminders || [],
+    source: "personal",
+    createdAt: data.createdAt || new Date().toISOString(),
+  };
+
+  saveAndSetAppointments(uniquePlanningEvents([appointment, ...AppState.appointments]));
+  return appointment;
+}
+
+function deleteAppointment(id) {
+  if (!id) return;
+  saveAndSetAppointments(AppState.appointments.filter((appointment) => appointment.id !== id));
+}
+
+function addDayItem(data) {
+  const text = cleanQuickEntryText(String(data.text || "").trim(), data.type || "task");
+  if (!text || !data.date) return null;
+  const category = data.category || categoryFromEvent({ title: text, type: data.type || "task" });
+
+  const dayItem = {
+    id: data.id || createId(),
+    date: data.date,
+    type: data.type || "task",
+    time: data.time || "",
+    category,
+    reminder: data.reminder || "",
+    text,
+    createdAt: data.createdAt || new Date().toISOString(),
+  };
+
+  saveAndSetDayItems([dayItem, ...AppState.dayItems]);
+  return dayItem;
+}
+
+function deleteDayItem(id) {
+  if (!id) return;
+  saveAndSetDayItems(AppState.dayItems.filter((item) => item.id !== id));
+}
+
+function buildPlanningEvents(text, data) {
+  const thoughts = text ? splitThoughts(text) : [];
+  const userEvents = thoughts
+    .map((thought) => createPlanningEvent(thought))
+    .filter(Boolean);
+  const personalEvents = AppState.appointments.map((appointment) => ({ ...appointment, source: "personal" }));
+  const selectedDayEvents = AppState.dayItems.map((item) => ({
+    id: item.id,
+    title: item.text,
+    type: eventTypeForCategory(item.type, item.category),
+    date: item.date,
+    time: item.time || "",
+    meta: dayItemMetaLabel(item),
+    category: item.category || categoryFromEvent(item),
+    source: "day",
+    reminders: item.reminder ? [item.reminder] : [],
+    note: item.type === "note" ? item.text : "",
+  }));
+  const fallbackRoutines = data.routines
+    .filter((item) => !item.startsWith("Geen"))
+    .map((item) => ({ title: item, type: "routine", date: null, meta: "Wekelijkse routine", source: "user" }));
+  const calendarEvents = [
+    ...(AppState.settings.showHolidays ? dutchHolidays : []),
+    ...(AppState.settings.showVacations ? schoolVacations : []),
+  ];
+
+  return uniquePlanningEvents([...personalEvents, ...selectedDayEvents, ...userEvents, ...fallbackRoutines, ...calendarEvents]).sort(compareEvents);
+}
+
+function createPlanningEvent(thought) {
+  const normalized = normalize(thought);
+  const date = parseDateFromThought(thought);
+  const time = parseTimeFromText(thought);
+  const personalType = detectAppointmentType(thought);
+  const isPersonal = personalType.eventType === "personal";
+  const isDeadline = hasAny(normalized, ["deadline", "inlever", "afmaken", "afronden", "tentamen", "examen", "voor "]);
+  const isAppointment = hasAny(normalized, ["afspraak", "afspreken", "meeting", "gesprek", "dokter", "tandarts", "eten met", "bellen met", "bel ik", "verjaardag"]);
+  const isSport = hasAny(normalized, ["sport", "training", "fitness", "hardlopen", "wandelen", "yoga", "zwemmen", "boksen", "voetbal"]);
+  const isSchool = hasAny(normalized, ["school", "studie", "huiswerk", "scriptie", "college", "les", "tentamen", "bewijstuk"]);
+  const isRoutine = hasAny(normalized, ["elke dag", "dagelijks", "wekelijks", "routine", "gewoonte", "elke ochtend", "elke avond"]);
+
+  if (!date && !isRoutine && !isDeadline && !isAppointment && !isSport && !isSchool) return null;
+
+  let type = "deadline";
+  if (isRoutine && !date) type = "routine";
+  else if (isPersonal) type = "personal";
+  else if (isSchool) type = "school";
+  else if (isSport) type = "sport";
+  else if (isAppointment) type = "appointment";
+  else if (isDeadline) type = "deadline";
+
+  return {
+    title: date && ["appointment", "sport", "school"].includes(type) ? cleanAppointmentTitle(thought) : softenItem(thought),
+    type,
+    date,
+    time,
+    meta: type === "personal" ? personalType.label : date ? typeLabel(type) : "Wekelijks terugkerend",
+    category: personalType.category || categoryFromEvent({ title: thought, type, meta: personalType.label }),
+    source: "user",
+  };
+}
+
+function renderWeekOverview(events) {
+  if (!DOM.weekInsight) return;
+  const today = startOfDay(new Date());
+  const weekStart = startOfWeek(today);
+  const weekEnd = addDays(weekStart, 6);
+  const weekEvents = events.filter((event) => ["user", "personal", "day"].includes(event.source) && event.date && isBetween(parseISODate(event.date), weekStart, weekEnd));
+  const deadlines = weekEvents.filter((event) => event.type === "deadline" || event.type === "school").slice(0, 4);
+  const appointments = weekEvents.filter((event) => ["appointment", "personal", "sport"].includes(event.type)).slice(0, 4);
+  const allDeadlines = weekEvents.filter((event) => event.type === "deadline");
+  const allAppointments = weekEvents.filter((event) => ["appointment", "personal"].includes(event.type));
+  const allSports = weekEvents.filter((event) => event.type === "sport");
+  const allSchool = weekEvents.filter((event) => event.type === "school");
+  const busiestDay = getBusiestDay(weekEvents);
+  const warnings = [];
+
+  if (!weekEvents.length) {
+    DOM.weekInsight.textContent = t("noWeekItems");
+    updateWeekStats({ deadlines: 0, appointments: 0, sports: 0, school: 0 });
+    DOM.weekDeadlines.innerHTML = "";
+    DOM.weekAppointments.innerHTML = listMarkup([t("noWeekAppointments")]);
+    DOM.weekWarnings.innerHTML = "";
+    return;
+  }
+
+  if (weekEvents.length >= 8) warnings.push(t("warningFullWeek"));
+  if (deadlines.length >= 3) warnings.push(t("warningDeadlines"));
+  if (busiestDay.count >= 4) warnings.push(t("warningBusiestDay", { date: formatShortDate(busiestDay.date) }));
+  if (!warnings.length) warnings.push(t("warningSpace"));
+
+  DOM.weekInsight.textContent =
+    weekEvents.length >= 8
+      ? t("weekBusy")
+      : weekEvents.length >= 4
+        ? t("weekSomeItems")
+        : t("weekQuiet");
+
+  updateWeekStats({
+    deadlines: allDeadlines.length,
+    appointments: allAppointments.length,
+    sports: allSports.length,
+    school: allSchool.length,
+  });
+  DOM.weekDeadlines.innerHTML = deadlines.length ? listMarkup(deadlines.map(formatEventLine)) : "";
+  DOM.weekAppointments.innerHTML = appointments.length ? listMarkup(appointments.map(formatEventLine)) : "";
+  DOM.weekWarnings.innerHTML = listMarkup(warnings);
+}
+
+function updateWeekStats(counts) {
+  const items = [
+    [DOM.deadlineCount, counts.deadlines],
+    [DOM.appointmentCount, counts.appointments],
+    [DOM.sportCount, counts.sports],
+    [DOM.schoolCount, counts.school],
+  ];
+  const hasStats = items.some(([, count]) => count > 0);
+  items.forEach(([element, count]) => {
+    if (!element) return;
+    element.textContent = count;
+    element.closest(".agenda-stat")?.classList.toggle("is-empty", count === 0);
+  });
+  DOM.deadlineCount?.closest(".agenda-stats")?.classList.toggle("is-empty", !hasStats);
+}
+
+function renderTodayAgenda(events) {
+  const today = toISODate(new Date());
+  const todayEvents = events
+    .filter((event) => event.date === today && ["personal", "appointment", "sport", "school", "deadline"].includes(event.type))
+    .sort(compareEvents)
+    .slice(0, 4);
+
+  DOM.todayAgendaList.innerHTML = todayEvents.length
+    ? todayEvents.map(renderAgendaFocusItem).join("")
+    : `<p class="quiet-note">${t("noUrgentToday")}</p>`;
+}
+
+function renderAgendaFocusItem(event) {
+  return `
+    <div class="agenda-focus-item">
+      <strong>${escapeHtml(event.title)}</strong>
+      <span>${escapeHtml(formatEventLine(event))}</span>
+      ${event.reminders?.filter(Boolean).length ? `<span>${escapeHtml(formatReminderLabels(event.reminders.filter(Boolean)))}</span>` : ""}
+    </div>
+  `;
+}
+
+function renderAgenda(events) {
+  const today = startOfDay(new Date());
+  const isMonthView = agendaView === "month" && isDesktopAgenda();
+  if (isMonthView) {
+    renderMonthAgenda(events, today);
+    return;
+  }
+
+  const weekStart = startOfDay(getVisibleWeekStart());
+  const weekEnd = addDays(weekStart, 6);
+  const datedEvents = events.filter((event) => event.date && isBetween(parseISODate(event.date), weekStart, weekEnd));
+  const agendaDays = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  DOM.calendarTitle.textContent = weekStart.toLocaleDateString(currentLocale(), { month: "long", year: "numeric" });
+  setAgendaViewMode("week");
+  renderTodayContext(today);
+  DOM.planningGrid.innerHTML = agendaDays.map((date) => renderDayCard(date, datedEvents)).join("");
+  renderWeekdayLabels(agendaDays);
+  renderSelectedDay(events);
+}
+
+function renderMonthAgenda(events, today) {
+  const selected = parseISODate(AppState.selectedDate);
+  const monthStart = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  const monthEnd = new Date(selected.getFullYear(), selected.getMonth() + 1, 0);
+  const gridStart = startOfWeek(monthStart);
+  const gridEnd = addDays(startOfWeek(monthEnd), 6);
+  const agendaDays = [];
+  for (let day = gridStart; day <= gridEnd; day = addDays(day, 1)) {
+    agendaDays.push(day);
+  }
+  const datedEvents = events.filter((event) => event.date && isBetween(parseISODate(event.date), gridStart, gridEnd));
+
+  DOM.calendarTitle.textContent = monthStart.toLocaleDateString(currentLocale(), { month: "long", year: "numeric" });
+  setAgendaViewMode("month");
+  renderTodayContext(today);
+  DOM.planningGrid.innerHTML = agendaDays.map((date) => renderMonthDayCard(date, datedEvents, monthStart.getMonth())).join("");
+  renderWeekdayLabels(agendaDays.slice(0, 7));
+  renderSelectedDay(events);
+}
+
+function setAgendaViewMode(view) {
+  DOM.calendarPanel?.classList.toggle("month-mode", view === "month");
+  DOM.planningGrid?.classList.toggle("month-view", view === "month");
+  DOM.planningGrid?.classList.toggle("week-view", view !== "month");
+  DOM.agendaViewButtons?.forEach((button) => {
+    const isActive = button.dataset.agendaView === view;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function renderTodayContext(today) {
+  const isSelectedToday = AppState.selectedDate === toISODate(today);
+  const contextDate = getDayContextText();
+  if (DOM.calendarContext) DOM.calendarContext.textContent = `${t("today")} • ${contextDate}`;
+  DOM.todayShortcut?.classList.toggle("active", !isSelectedToday);
+  DOM.todayShortcut?.setAttribute("aria-pressed", String(isSelectedToday));
+  DOM.todayShortcut?.classList.toggle("is-shortcut", !isSelectedToday);
+}
+
+function renderWeekdayLabels(agendaDays) {
+  if (!DOM.weekdayRow) return;
+  DOM.weekdayRow.innerHTML = agendaDays
+    .map((date) => `<span>${date.toLocaleDateString(currentLocale(), { weekday: "short" }).replace(".", "")}</span>`)
+    .join("");
+}
+
+function getVisibleWeekStart() {
+  return addDays(startOfWeek(new Date()), AppState.currentWeekOffset * 7);
+}
+
+function isDesktopAgenda() {
+  return window.matchMedia("(min-width: 769px)").matches;
+}
+
+function renderHolidayList(events) {
+  if (!DOM.holidayList) return;
+  const today = startOfDay(new Date());
+  const upcoming = events
+    .filter((event) => ["holiday", "vacation"].includes(event.type))
+    .filter((event) => event.date && parseISODate(event.date) >= today)
+    .slice(0, 4);
+
+  DOM.holidayList.innerHTML = upcoming.length
+    ? upcoming.map((event) => `<li>${escapeHtml(event.title)}${event.date ? ` - ${escapeHtml(formatShortDate(parseISODate(event.date)))}` : ""}</li>`).join("")
+    : `<li>${t("noHolidays")}</li>`;
+}
+
+function isTomorrow(date) {
+  return date === toISODate(addDays(new Date(), 1));
+}
+
+function isToday(date) {
+  return date === toISODate(new Date());
+}
+
+function renderDayCard(date, events) {
+  const iso = toISODate(date);
+  const dayEvents = events
+    .filter((event) => event.date === iso)
+    .sort(compareEvents)
+    .slice(0, 5);
+  const isQuiet = !dayEvents.length;
+
+  return `
+    <article class="day-card ${isQuiet ? "rest-day" : ""} ${iso === AppState.selectedDate ? "selected" : ""}" data-date="${iso}" tabindex="0">
+      <div class="day-heading">
+        <span class="mobile-day-label">${date.toLocaleDateString(currentLocale(), { weekday: "short" }).replace(".", "").slice(0, 1)}</span>
+        <h3>${date.getDate()}</h3>
+        <span class="mobile-event-count">${dayEvents.length ? dayEvents.length : ""}</span>
+      </div>
+      <div class="event-list">
+        ${
+          dayEvents.length
+            ? dayEvents.map(renderEventCard).join("")
+            : ""
+        }
+      </div>
+    </article>
+  `;
+}
+
+function renderMonthDayCard(date, events, visibleMonth) {
+  const iso = toISODate(date);
+  const dayEvents = events
+    .filter((event) => event.date === iso)
+    .sort(compareEvents);
+  const visibleEvents = dayEvents.slice(0, 3);
+  const moreCount = Math.max(dayEvents.length - visibleEvents.length, 0);
+  const isQuiet = !dayEvents.length;
+  const isOutsideMonth = date.getMonth() !== visibleMonth;
+
+  return `
+    <article class="day-card month-day-card ${isQuiet ? "rest-day" : ""} ${isOutsideMonth ? "outside-month" : ""} ${iso === AppState.selectedDate ? "selected" : ""}" data-date="${iso}" tabindex="0">
+      <div class="day-heading">
+        <h3>${date.getDate()}</h3>
+        <span>${date.toLocaleDateString(currentLocale(), { weekday: "short" }).replace(".", "")}</span>
+      </div>
+      <div class="event-list">
+        ${visibleEvents.map(renderEventCard).join("")}
+        ${moreCount ? `<small class="more-events">${escapeHtml(t("moreItems", { count: moreCount }))}</small>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderSelectedDay(events) {
+  const date = parseISODate(AppState.selectedDate);
+  const items = events
+    .filter((event) => event.date === AppState.selectedDate && ["personal", "appointment", "sport", "school", "deadline", "task", "reminder", "note"].includes(event.type))
+    .sort(compareEvents);
+
+  DOM.selectedDayTitle.textContent = date.toLocaleDateString(currentLocale(), { weekday: "long", day: "numeric", month: "long" });
+  DOM.selectedDayCount.textContent = t(items.length === 1 ? "selectedItem" : "selectedItems", { count: items.length });
+  const rememberItems = getSelectedDayRememberItems(items);
+  DOM.selectedDayItems.innerHTML = items.length
+    ? `${items.map(renderDayDetailItem).join("")}${renderSelectedDayRememberItems(rememberItems)}`
+    : `${`<p class="quiet-note">${t("noSelectedDay")}</p>`}${renderSelectedDayRememberItems(rememberItems)}`;
+}
+
+function renderDayDetailItem(event) {
+  const suffix = t("timeSuffix");
+  const timeLabel = event.time ? `${escapeHtml(formatTime(event.time))}${suffix ? ` ${suffix}` : ""}` : t("allDay");
+  const deleteButton = renderAgendaDeleteButton(event);
+  return `
+    <div class="day-detail-item ${event.type}">
+      ${deleteButton}
+      <strong>${escapeHtml(event.title)}</strong>
+      <span>${escapeHtml(event.meta || typeLabel(event.type))} · ${timeLabel}</span>
+      ${event.reminders?.length ? `<span>${escapeHtml(formatReminderLabels(event.reminders))}</span>` : ""}
+    </div>
+  `;
+}
+
+function renderAgendaDeleteButton(event) {
+  if (!event.id || !["personal", "day"].includes(event.source)) return "";
+  const attribute = event.source === "personal" ? "data-delete-appointment" : "data-delete-day-item";
+  return `<button class="delete-item agenda-delete" type="button" ${attribute}="${escapeHtml(event.id)}" aria-label="${escapeHtml(event.title)} verwijderen">⌫</button>`;
+}
+
+function getSelectedDayRememberItems(dayEvents) {
+  if (!AppState.settings.rememberAuto) return [];
+  const contexts = [...new Set(dayEvents
+    .map((event) => detectRememberSituation(event))
+    .filter((context) => context && isRememberContextEnabled(context)))];
+  if (!contexts.length) return [];
+
+  const seen = new Set();
+  return AppState.rememberItems
+    .filter((item) => item.autoRemind !== false)
+    .filter((item) => item.contexts?.some((context) => contexts.includes(context)))
+    .filter((item) => {
+      const key = normalizeForDuplicate(item.name);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function renderSelectedDayRememberItems(items) {
+  if (!items.length) return "";
+  return `
+    <div class="day-remember-hint">
+      <strong>${t("dontForget")}</strong>
+      <ul>
+        ${items.map((item) => `<li>${escapeHtml(item.name)}</li>`).join("")}
+      </ul>
+    </div>
+  `;
+}
+
+function renderEventCard(event) {
+  return `
+    <div class="event-card ${event.type}">
+      <span>${escapeHtml(getEventMeta(event))}</span>
+      <strong>${escapeHtml(event.title)}</strong>
+      <small class="event-time">${event.time ? escapeHtml(formatTime(event.time)) : "hele dag"}</small>
+      ${event.reminders?.filter(Boolean).length ? `<small class="event-reminder">${escapeHtml(formatReminderLabels(event.reminders.filter(Boolean)))}</small>` : ""}
+    </div>
+  `;
+}
+
+function getEventMeta(event) {
+  if (event.type === "vacation" && event.end) {
+    return `${event.meta} t/m ${formatShortDate(parseISODate(event.end))}`;
+  }
+
+  return event.meta || typeLabel(event.type);
+}
+
+function parseDateFromThought(thought) {
+  const normalized = normalize(thought);
+  const today = startOfDay(new Date());
+  const dateMatch = normalized.match(/\b(\d{1,2})[-/ ](\d{1,2})(?:[-/ ](\d{4}))?\b/);
+
+  if (normalized.includes("overmorgen")) return toISODate(addDays(today, 2));
+  if (normalized.includes("vandaag")) return toISODate(today);
+  if (normalized.includes("morgen")) return toISODate(addDays(today, 1));
+  if (normalized.includes("deze week")) return toISODate(addDays(today, 2));
+
+  if (dateMatch) {
+    const day = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]) - 1;
+    const year = dateMatch[3] ? Number(dateMatch[3]) : today.getFullYear();
+    return toISODate(new Date(year, month, day));
+  }
+
+  const weekdays = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
+  const foundIndex = weekdays.findIndex((day) => normalized.includes(day));
+  if (foundIndex >= 0) return toISODate(nextWeekday(today, foundIndex));
+
+  return null;
+}
+
+function nextWeekday(from, weekday) {
+  const diff = (weekday - from.getDay() + 7) % 7;
+  return addDays(from, diff);
+}
+
+function getBusiestDay(events) {
+  const counts = events.reduce((days, event) => {
+    days[event.date] = (days[event.date] || 0) + 1;
+    return days;
+  }, {});
+  const [date, count = 0] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0] || [toISODate(new Date()), 0];
+  return { date: parseISODate(date), count };
+}
+
+function uniquePlanningEvents(events) {
+  const seen = new Set();
+  return events.filter((event) => {
+    const key = `${event.date || "routine"}-${event.type}-${normalizeForDuplicate(event.title)}-${event.meta || ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function compareEvents(a, b) {
+  if (!a.date && !b.date) return a.title.localeCompare(b.title);
+  if (!a.date) return 1;
+  if (!b.date) return -1;
+  const dateDiff = parseISODate(a.date) - parseISODate(b.date);
+  if (dateDiff !== 0) return dateDiff;
+  return (a.time || "23:59").localeCompare(b.time || "23:59");
+}
+
+function typeLabel(type) {
+  return {
+    deadline: t("deadline").toLowerCase(),
+    appointment: t("appointment").toLowerCase(),
+    personal: t("freeTime").toLowerCase(),
+    sport: t("sport").toLowerCase(),
+    school: t("school").toLowerCase(),
+    task: getLanguageCode() === "en" ? "task" : "taak",
+    reminder: t("addReminder").replace("+ ", "").toLowerCase(),
+    note: getLanguageCode() === "en" ? "note" : "notitie",
+    routine: getLanguageCode() === "en" ? "routine" : "routine",
+    holiday: getLanguageCode() === "en" ? "holiday" : "feestdag",
+    vacation: getLanguageCode() === "en" ? "school break" : "schoolvakantie",
+  }[type];
+}
+
+function formatEventLine(event) {
+  const time = event.time ? ` om ${formatTime(event.time)}` : "";
+  return `${formatShortDate(parseISODate(event.date))}${time}: ${event.title}`;
+}
+
+function formatTime(time) {
+  if (AppState.settings.time24 !== false) return time;
+  const [hours, minutes] = time.split(":").map(Number);
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const displayHour = hours % 12 || 12;
+  return `${displayHour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+function formatShortDate(date) {
+  return date.toLocaleDateString(currentLocale(), { day: "numeric", month: "short" });
+}
+
+function currentLocale() {
+  return getLanguageCode() === "en" ? "en-US" : "nl-NL";
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function startOfWeek(date) {
+  const diff = AppState.settings?.weekStart === "Zondag" ? date.getDay() : (date.getDay() + 6) % 7;
+  return addDays(startOfDay(date), -diff);
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function addMonths(date, months) {
+  const next = new Date(date);
+  const day = next.getDate();
+  next.setDate(1);
+  next.setMonth(next.getMonth() + months);
+  const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+  next.setDate(Math.min(day, lastDay));
+  return next;
+}
+
+function addMinutes(date, minutes) {
+  const next = new Date(date);
+  next.setMinutes(next.getMinutes() + minutes);
+  return next;
+}
+
+function isBetween(date, start, end) {
+  return date >= startOfDay(start) && date <= startOfDay(end);
+}
+
+function parseISODate(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toISODate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parsePersonalAppointment(text, reminderChoices, chosenCategory = "") {
+  const date = parseDateFromThought(text);
+  const time = parseTimeFromText(text);
+  const type = detectAppointmentType(text, chosenCategory);
+  const cleanedTitle = cleanAppointmentTitle(text);
+
+  if (!date) {
+    return {
+      error: t("missingDate"),
+    };
+  }
+
+  return {
+    id: createId(),
+    title: cleanedTitle,
+    date,
+    time,
+    type: type.eventType,
+    meta: type.label,
+    category: type.category,
+    reminders: reminderChoices,
+    source: "personal",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function parseTimeFromText(text) {
+  const normalized = normalize(text);
+  const match = normalized.match(/(?:\bom\s+)?(\d{1,2})(?:(?::|\.)(\d{2})|\s*uur)\b/);
+  if (!match) return "";
+
+  const hour = Math.min(Number(match[1]), 23);
+  const minutes = match[2] ? Math.min(Number(match[2]), 59) : 0;
+  return `${String(hour).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function detectAppointmentType(text, chosenCategory = "") {
+  if (chosenCategory) return appointmentTypeFromCategory(chosenCategory);
+
+  const normalized = normalize(text);
+
+  if (hasAny(normalized, ["school", "studie", "mentor", "college", "les", "tentamen", "examen", "stage"])) {
+    return appointmentTypeFromCategory("school");
+  }
+
+  if (hasAny(normalized, ["werk", "kantoor", "meeting", "klant", "collega", "laptop", "dienst"])) {
+    return appointmentTypeFromCategory("werk");
+  }
+
+  if (hasAny(normalized, ["sport", "training", "fitness", "voetbal", "yoga", "zwemmen", "hardlopen", "boksen"])) {
+    return appointmentTypeFromCategory("sport");
+  }
+
+  if (hasAny(normalized, ["vriend", "vriendin", "familie", "ouders", "eten met", "afspreken", "verjaardag", "borrel", "kapper", "tandarts", "dokter", "huisarts", "therapie", "fysio", "film", "game"])) {
+    return appointmentTypeFromCategory("vrije tijd");
+  }
+
+  return appointmentTypeFromCategory("vrije tijd");
+}
+
+function appointmentTypeFromCategory(category) {
+  return {
+    deadline: { eventType: "deadline", label: "deadline", category: "deadline" },
+    afspraak: { eventType: "appointment", label: t("appointment").toLowerCase(), category: "vrije tijd" },
+    school: { eventType: "school", label: t("school").toLowerCase(), category: "school" },
+    werk: { eventType: "appointment", label: t("work").toLowerCase(), category: "werk" },
+    sport: { eventType: "sport", label: t("sport").toLowerCase(), category: "sport" },
+    "vrije tijd": { eventType: "appointment", label: t("appointment").toLowerCase(), category: "vrije tijd" },
+  }[category] || { eventType: "appointment", label: "vrije tijd", category: "vrije tijd" };
+}
+
+function agendaCategoryLabel(category) {
+  return {
+    deadline: "deadline",
+    school: t("school").toLowerCase(),
+    sport: t("sport").toLowerCase(),
+    werk: t("appointment").toLowerCase(),
+    "vrije tijd": t("appointment").toLowerCase(),
+    afspraak: t("appointment").toLowerCase(),
+  }[category] || "";
+}
+
+function dayItemMetaLabel(item) {
+  const type = typeLabel(item.type);
+  const category = agendaCategoryLabel(item.category);
+  if (!category || category === type) return type;
+  return `${type} · ${category}`;
+}
+
+function cleanAppointmentTitle(text) {
+  return softenItem(
+    text
+      .replace(/\b(ik heb|ik ga|ik moet|er is)\b/gi, "")
+      .replace(/(?:\bom\s+)?\d{1,2}(?:(?::|\.)\d{2}|\s*uur)\b/gi, "")
+      .replace(/\b(vandaag|morgen|overmorgen|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag|deze week)\b/gi, "")
+      .replace(/^\s*een\s+/i, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[.!?]+$/, "")
+  );
+}
+
+function renderPersonalAppointments(events) {
+  if (!DOM.personalAppointmentList) return;
+  const upcoming = events
+    .filter((event) => event.source === "personal")
+    .filter((event) => event.date && parseISODate(event.date) >= startOfDay(new Date()))
+    .slice(0, 5);
+
+  DOM.personalAppointmentList.closest(".important-panel")?.classList.toggle("has-items", Boolean(upcoming.length));
+  DOM.personalAppointmentList.innerHTML = upcoming.length
+    ? upcoming
+        .map(
+          (event) =>
+            `<li class="appointment-list-item">
+              ${renderAgendaDeleteButton(event)}
+              <strong>${escapeHtml(event.title)}</strong><br>${escapeHtml(formatEventLine(event))}<br><span class="event-reminder">${escapeHtml(formatReminderLabels(event.reminders))}</span>
+            </li>`
+        )
+        .join("")
+    : `<li>${t("noAppointments")}</li>`;
+}
+
+function animateWeekChange() {
+  DOM.planningGrid.classList.remove("is-shifting");
+  void DOM.planningGrid.offsetWidth;
+  DOM.planningGrid.classList.add("is-shifting");
+}
+
+function moveWeek(direction) {
+  AppState.setCurrentWeekOffset(AppState.currentWeekOffset + direction);
+  AppState.setSelectedDate(toISODate(getVisibleWeekStart()));
+  animateWeekChange();
+}
+
+function moveMonth(direction) {
+  AppState.setSelectedDate(toISODate(addMonths(parseISODate(AppState.selectedDate), direction)));
+  animateWeekChange();
+}
+
+function quickPlaceholder(type) {
+  return {
+    appointment: "Bijvoorbeeld: kapper om 14:00",
+    task: getLanguageCode() === "en" ? "For example: prepare bag" : "Bijvoorbeeld: tas klaarzetten",
+    reminder: getLanguageCode() === "en" ? "For example: bring water bottle" : "Bijvoorbeeld: waterfles meenemen",
+    note: getLanguageCode() === "en" ? "For example: take it easy" : "Bijvoorbeeld: rustig aan doen",
+    deadline: getLanguageCode() === "en" ? "For example: hand in report at 17:00" : "Bijvoorbeeld: verslag inleveren om 17:00",
+  }[type];
+}
+
+function cleanQuickEntryText(text, type) {
+  const clean = ["appointment", "deadline"].includes(type) ? cleanAppointmentTitle(text) : softenItem(text);
+  return clean.replace(/(?:\bom\s+)?\d{1,2}(?:(?::|\.)\d{2}|\s*uur)\b/gi, "").replace(/\s+/g, " ").trim();
+}
+
+
