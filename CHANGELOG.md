@@ -19,6 +19,7 @@
 - Afgeleide Brain Dump-items worden niet meer als normale verwijderbare agenda-items getoond.
 - Feestdagen en schoolvakanties zijn terug als vaste, subtiele kalenderitems zonder verwijderknop.
 - Mobiele Agenda is herwerkt naar een enkele rustige timeline met sticky topbar, sticky weekbalk, uitklapbare maandkalender en mobiele add-event sheet.
+- PWA-cache vernieuwd zodat iPhone/Vercel updates sneller worden opgepakt.
 
 ### Pagina's tijdelijk leeggemaakt voor nieuw ontwerp
 
