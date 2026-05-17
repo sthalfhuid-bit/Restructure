@@ -20,7 +20,7 @@ function renderDesktopAgenda(events) {
   const selected = parseISODate(AppState.selectedDate);
   const datedEvents = events.filter((event) => event.date).sort(compareEvents);
   const visibleEvents = datedEvents
-    .filter(isDesktopVisibleAgendaEvent)
+    .filter(isDesktopManageableAgendaEvent)
     .filter(eventMatchesDesktopAgendaFilters);
   document.querySelector("#desktopAgendaTitle").textContent = desktopAgendaTitle(selected);
   document.querySelector("#desktopAgendaContext").textContent = `${t("today")} • ${getDayContextText()}`;
@@ -240,8 +240,8 @@ function eventMatchesDesktopAgendaFilters(event) {
   return true;
 }
 
-function isDesktopVisibleAgendaEvent(event) {
-  return Boolean(event.id && ["personal", "day"].includes(event.source)) || ["holiday", "vacation"].includes(event.type);
+function isDesktopManageableAgendaEvent(event) {
+  return Boolean(event.id && ["personal", "day"].includes(event.source));
 }
 
 function syncDesktopAgendaFilters() {
