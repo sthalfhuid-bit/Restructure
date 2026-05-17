@@ -644,17 +644,21 @@ function setupMobileAgendaScrollSync() {
   const days = document.querySelectorAll("#mobileAgendaList [data-mobile-list-day]");
   if (!days.length || typeof IntersectionObserver === "undefined") return;
   mobileAgendaScrollObserver = new IntersectionObserver((entries) => {
+    const now = Date.now();
+    if (mobileAgendaScrollSyncPending || now - mobileAgendaLastSync < 420) return;
     const active = entries
       .filter((entry) => entry.isIntersecting)
-      .sort((a, b) => Math.abs(a.boundingClientRect.top - 145) - Math.abs(b.boundingClientRect.top - 145))[0];
+      .filter((entry) => entry.intersectionRatio > 0.42)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
     const date = active?.target?.dataset.mobileListDay;
     if (!date || date === AppState.selectedDate) return;
+    mobileAgendaLastSync = now;
     mobileAgendaScrollSyncPending = true;
     AppState.setSelectedDate(date);
     setTimeout(() => {
       mobileAgendaScrollSyncPending = false;
-    }, 120);
-  }, { rootMargin: "-132px 0px -64% 0px", threshold: 0.01 });
+    }, 260);
+  }, { rootMargin: "-112px 0px -48% 0px", threshold: [0.45, 0.6, 0.75] });
   days.forEach((day) => mobileAgendaScrollObserver.observe(day));
 }
 

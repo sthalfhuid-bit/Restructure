@@ -8,6 +8,7 @@ let desktopAgendaView = "week";
 let mobileAgendaMonthExpanded = false;
 let mobileAgendaScrollObserver = null;
 let mobileAgendaScrollSyncPending = false;
+let mobileAgendaLastSync = 0;
 let planningRenderScheduled = false;
 let rememberRenderScheduled = false;
 

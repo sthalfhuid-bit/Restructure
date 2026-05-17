@@ -6719,33 +6719,33 @@ body.calm-mode .appointment-panel {
     z-index: 42;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 0.7rem;
+    gap: 0.5rem;
     align-items: center;
     margin: 0;
-    padding: 0.58rem 0.72rem 0.5rem;
-    border-bottom: 1px solid rgba(231, 238, 232, 0.045);
-    background: rgba(9, 11, 11, 0.92);
-    backdrop-filter: blur(18px);
+    padding: 0.38rem 0.65rem 0.28rem;
+    border-bottom: 0;
+    background: rgba(9, 11, 11, 0.88);
+    backdrop-filter: blur(14px);
   }
 
   #planning .mobile-agenda-topbar > button,
   #planning .mobile-agenda-tools button {
-    min-width: 2.45rem;
-    min-height: 2.35rem;
-    border: 1px solid rgba(231, 238, 232, 0.055);
-    border-radius: 13px;
-    background: rgba(255, 255, 255, 0.035);
+    min-width: 2.15rem;
+    min-height: 2.05rem;
+    border: 0;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
     color: var(--muted);
     font: inherit;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
   }
 
   #planning .mobile-agenda-topbar h3 {
     overflow: hidden;
     margin: 0;
     color: var(--text);
-    font-size: 1rem;
-    font-weight: 590;
+    font-size: 0.92rem;
+    font-weight: 560;
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -6753,7 +6753,7 @@ body.calm-mode .appointment-panel {
 
   #planning .mobile-agenda-tools {
     display: flex;
-    gap: 0.35rem;
+    gap: 0.22rem;
     align-items: center;
   }
 
@@ -6764,26 +6764,26 @@ body.calm-mode .appointment-panel {
 
   #planning .mobile-agenda-datebar {
     position: sticky;
-    top: calc(3.45rem + env(safe-area-inset-top));
+    top: calc(2.72rem + env(safe-area-inset-top));
     z-index: 38;
     display: grid;
-    grid-template-columns: 2.1rem minmax(0, 1fr);
-    gap: 0.35rem;
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+    gap: 0.25rem;
     align-items: start;
-    padding: 0.45rem 0.72rem 0.52rem;
-    border-bottom: 1px solid rgba(231, 238, 232, 0.04);
-    background: rgba(9, 11, 11, 0.9);
-    backdrop-filter: blur(18px);
+    padding: 0.22rem 0.65rem 0.34rem;
+    border-bottom: 1px solid rgba(231, 238, 232, 0.026);
+    background: rgba(9, 11, 11, 0.86);
+    backdrop-filter: blur(14px);
   }
 
   #planning .mobile-agenda-month-toggle {
     display: grid;
-    width: 2.1rem;
-    height: 3.5rem;
+    width: 1.75rem;
+    height: 2.85rem;
     place-items: center;
     border: 0;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.025);
+    border-radius: 9px;
+    background: transparent;
     color: var(--soft);
     font: inherit;
     font-size: 1rem;
@@ -6799,7 +6799,7 @@ body.calm-mode .appointment-panel {
     display: flex;
     gap: 0.35rem;
     margin: 0;
-    padding: 0 0 0.3rem;
+    padding: 0 0 0.15rem;
     overflow-x: auto;
     overflow-y: hidden;
     overscroll-behavior-x: contain;
@@ -6809,13 +6809,13 @@ body.calm-mode .appointment-panel {
   }
 
   #planning .mobile-agenda-strip-day {
-    flex: 0 0 3.25rem;
+    flex: 0 0 2.85rem;
     display: grid;
     place-items: center;
     gap: 0.02rem;
-    height: 3.55rem;
+    height: 2.95rem;
     border: 0;
-    border-radius: 13px;
+    border-radius: 10px;
     background: transparent;
     color: var(--muted);
     font: inherit;
@@ -6831,23 +6831,23 @@ body.calm-mode .appointment-panel {
 
   #planning .mobile-agenda-strip-day strong {
     display: grid;
-    width: 2rem;
-    height: 2rem;
+    width: 1.72rem;
+    height: 1.72rem;
     place-items: center;
     border-radius: 999px;
     color: var(--text);
-    font-size: 0.98rem;
-    font-weight: 600;
+    font-size: 0.88rem;
+    font-weight: 580;
   }
 
   #planning .mobile-agenda-strip-day.selected strong {
     background: rgba(var(--accent-rgb), 0.82);
     color: #061514;
-    box-shadow: 0 7px 18px rgba(var(--accent-rgb), 0.13);
+    box-shadow: none;
   }
 
   #planning .mobile-agenda-strip-day i {
-    min-height: 0.42rem;
+    min-height: 0.32rem;
     color: var(--mint);
     font-style: normal;
     line-height: 0.45rem;
@@ -6856,8 +6856,8 @@ body.calm-mode .appointment-panel {
   #planning .mobile-agenda-month {
     grid-column: 1 / -1;
     display: grid;
-    gap: 0.42rem;
-    padding-top: 0.4rem;
+    gap: 0.28rem;
+    padding-top: 0.22rem;
   }
 
   #planning .mobile-agenda-month[hidden] {
@@ -6920,7 +6920,7 @@ body.calm-mode .appointment-panel {
   #planning .mobile-agenda-list {
     display: grid;
     gap: 0;
-    padding: 0.45rem 0.72rem 0;
+    padding: 0.24rem 0.65rem 0;
     touch-action: pan-y;
   }
 
@@ -6932,7 +6932,7 @@ body.calm-mode .appointment-panel {
   }
 
   #planning .mobile-agenda-list-day + .mobile-agenda-list-day {
-    border-top: 1px solid rgba(231, 238, 232, 0.055);
+    border-top: 1px solid rgba(231, 238, 232, 0.038);
   }
 
   #planning .mobile-agenda-list-day.selected {
@@ -6944,8 +6944,8 @@ body.calm-mode .appointment-panel {
     grid-template-columns: minmax(0, 1fr) 2.35rem;
     gap: 0.55rem;
     align-items: center;
-    min-height: 3rem;
-    padding: 0.72rem 0 0.35rem;
+    min-height: 2.5rem;
+    padding: 0.5rem 0 0.22rem;
     background: transparent;
   }
 
@@ -6955,8 +6955,8 @@ body.calm-mode .appointment-panel {
     background: transparent;
     color: var(--text);
     font: inherit;
-    font-size: 0.98rem;
-    font-weight: 620;
+    font-size: 0.92rem;
+    font-weight: 580;
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -6968,26 +6968,26 @@ body.calm-mode .appointment-panel {
 
   #planning .mobile-agenda-list-day header button:last-child {
     display: grid;
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2rem;
+    height: 2rem;
     place-items: center;
     border: 0;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.035);
+    background: transparent;
     color: var(--muted);
-    font-size: 1.35rem;
+    font-size: 1.18rem;
   }
 
   #planning .mobile-agenda-list-items {
     display: grid;
     gap: 0.28rem;
-    min-height: 2.35rem;
-    padding: 0 0 0.85rem;
+    min-height: 2rem;
+    padding: 0 0 0.62rem;
   }
 
   #planning .mobile-agenda-list-items > p {
     margin: 0;
-    padding: 0.52rem 0 0.58rem;
+    padding: 0.35rem 0 0.45rem;
     color: rgba(181, 176, 167, 0.52);
     font-size: 0.92rem;
     font-weight: 500;
@@ -7000,8 +7000,8 @@ body.calm-mode .appointment-panel {
     grid-template-columns: 3.45rem minmax(0, 1fr);
     gap: 0.55rem;
     align-items: center;
-    min-height: 2.7rem;
-    padding: 0.42rem 2.35rem 0.42rem 0;
+    min-height: 2.35rem;
+    padding: 0.32rem 2.2rem 0.32rem 0;
     border-left: 0;
     border-radius: 0;
     background: transparent;
