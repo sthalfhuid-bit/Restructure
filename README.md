@@ -75,6 +75,14 @@ Waarom:
 
 De Agenda moet voelen als tijd, dagen en afspraken. Niet als dashboard of AI-overzicht.
 
+Mobiele Agenda:
+
+- De mobiele Agenda gebruikt een enkele verticale timeline in plaats van losse dag/week/maand/lijst tabs.
+- De mobiele topbar toont alleen Vandaag, de zichtbare datum en compacte acties.
+- De weekbalk blijft sticky, is horizontaal scrollbaar en synchroniseert met de timeline.
+- De maandkalender klapt uit binnen hetzelfde agenda-scherm.
+- Toevoegen opent een native-feeling mobiele sheet met datum vooraf ingevuld.
+
 ## PWA status
 
 De app heeft PWA support:

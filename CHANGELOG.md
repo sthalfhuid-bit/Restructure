@@ -18,6 +18,7 @@
 - Desktop Agenda toont nu alleen echte, beheerbare agenda-items uit `appointments` en `dayItems`.
 - Afgeleide Brain Dump-items worden niet meer als normale verwijderbare agenda-items getoond.
 - Feestdagen en schoolvakanties zijn terug als vaste, subtiele kalenderitems zonder verwijderknop.
+- Mobiele Agenda is herwerkt naar een enkele rustige timeline met sticky topbar, sticky weekbalk, uitklapbare maandkalender en mobiele add-event sheet.
 
 ### Pagina's tijdelijk leeggemaakt voor nieuw ontwerp
 

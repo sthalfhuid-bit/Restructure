@@ -5,6 +5,9 @@ let touchStartY = 0;
 let touchStartTime = 0;
 let agendaView = "week";
 let desktopAgendaView = "week";
+let mobileAgendaMonthExpanded = false;
+let mobileAgendaScrollObserver = null;
+let mobileAgendaScrollSyncPending = false;
 let planningRenderScheduled = false;
 let rememberRenderScheduled = false;
 

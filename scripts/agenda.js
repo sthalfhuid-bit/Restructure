@@ -519,20 +519,35 @@ function renderMobileAgenda(events, today) {
 function renderNewMobileAgenda(events, today) {
   const selected = parseISODate(AppState.selectedDate);
   const title = document.querySelector("#mobileAgendaTitle");
-  const kicker = document.querySelector("#mobileAgendaKicker");
   const weekstrip = document.querySelector("#mobileAgendaWeekstrip");
+  const month = document.querySelector("#mobileAgendaMonth");
+  const monthToggle = document.querySelector("[data-mobile-agenda-month-toggle]");
   const list = document.querySelector("#mobileAgendaList");
-  if (!title || !kicker || !weekstrip || !list) return;
+  if (!title || !weekstrip || !list) return;
 
+  const mobileEvents = events.filter((event) => event.date).filter(isMobileVisibleAgendaEvent);
   const selectedWeekStart = startOfWeek(selected);
-  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(selectedWeekStart, index));
-  const listDays = Array.from({ length: 14 }, (_, index) => addDays(selected, index));
-  const eventDates = new Set(events.filter((event) => event.date).map((event) => event.date));
+  const weekDays = Array.from({ length: 21 }, (_, index) => addDays(selectedWeekStart, index - 7));
+  const timelineStart = addDays(startOfDay(today), -14);
+  const timelineEnd = addDays(startOfDay(today), 120);
+  const start = selected < timelineStart ? addDays(selected, -7) : timelineStart;
+  const end = selected > timelineEnd ? addDays(selected, 45) : timelineEnd;
+  const listDays = [];
+  for (let day = start; day <= end; day = addDays(day, 1)) listDays.push(day);
+  const eventDates = new Set(mobileEvents.map((event) => event.date));
 
-  title.textContent = selected.toLocaleDateString(currentLocale(), { month: "long", year: "numeric" });
-  kicker.textContent = `${t("today")} • ${getDayContextText()}`;
+  title.textContent = selected.toLocaleDateString(currentLocale(), { weekday: "long", day: "numeric", month: "long" });
   weekstrip.innerHTML = weekDays.map((day) => renderMobileAgendaStripDay(day, eventDates)).join("");
-  list.innerHTML = listDays.map((day) => renderMobileAgendaListDay(day, events, today)).join("");
+  if (month) {
+    month.hidden = !mobileAgendaMonthExpanded;
+    month.innerHTML = renderMobileAgendaMonth(selected, mobileEvents, eventDates);
+  }
+  if (monthToggle) {
+    monthToggle.classList.toggle("expanded", mobileAgendaMonthExpanded);
+    monthToggle.setAttribute("aria-expanded", String(mobileAgendaMonthExpanded));
+  }
+  list.innerHTML = listDays.map((day) => renderMobileAgendaListDay(day, mobileEvents, today)).join("");
+  setupMobileAgendaScrollSync();
   requestAnimationFrame(() => {
     weekstrip.querySelector(".selected")?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   });
@@ -555,13 +570,13 @@ function renderMobileAgendaListDay(day, events, today) {
   const label = mobileAgendaDayLabel(day, today);
 
   return `
-    <section class="mobile-agenda-list-day ${iso === AppState.selectedDate ? "selected" : ""}" data-mobile-list-day="${iso}">
+    <section class="mobile-agenda-list-day ${iso === AppState.selectedDate ? "selected" : ""} ${iso === toISODate(today) ? "today" : ""}" data-mobile-list-day="${iso}">
       <header>
         <button type="button" data-mobile-agenda-date="${iso}">${escapeHtml(label)}</button>
         <button type="button" data-mobile-agenda-add-date="${iso}" aria-label="${t("addCompact")}">+</button>
       </header>
       <div class="mobile-agenda-list-items">
-        ${dayEvents.length ? dayEvents.map(renderMobileAgendaListEvent).join("") : `<p>${t("noSelectedDay")}</p>`}
+        ${dayEvents.length ? dayEvents.map(renderMobileAgendaListEvent).join("") : `<p data-mobile-agenda-add-date="${iso}">${t("noSelectedDay")}</p>`}
       </div>
     </section>
   `;
@@ -587,6 +602,66 @@ function renderMobileAgendaListEvent(event) {
       ${renderAgendaDeleteButton(event)}
     </article>
   `;
+}
+
+function isMobileVisibleAgendaEvent(event) {
+  return Boolean(event.id && ["personal", "day"].includes(event.source)) || ["holiday", "vacation"].includes(event.type);
+}
+
+function renderMobileAgendaMonth(selected, events, eventDates) {
+  const monthStart = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  const monthEnd = new Date(selected.getFullYear(), selected.getMonth() + 1, 0);
+  const gridStart = startOfWeek(monthStart);
+  const gridEnd = addDays(startOfWeek(monthEnd), 6);
+  const days = [];
+  for (let day = gridStart; day <= gridEnd; day = addDays(day, 1)) days.push(day);
+
+  return `
+    <div class="mobile-agenda-month-title">${monthStart.toLocaleDateString(currentLocale(), { month: "long", year: "numeric" })}</div>
+    <div class="mobile-agenda-month-weekdays">
+      ${Array.from({ length: 7 }, (_, index) => addDays(gridStart, index))
+        .map((day) => `<span>${day.toLocaleDateString(currentLocale(), { weekday: "short" }).replace(".", "").slice(0, 1)}</span>`)
+        .join("")}
+    </div>
+    <div class="mobile-agenda-month-grid">
+      ${days.map((day) => {
+        const iso = toISODate(day);
+        const outside = day.getMonth() !== monthStart.getMonth();
+        return `
+          <button class="${outside ? "outside" : ""} ${iso === AppState.selectedDate ? "selected" : ""} ${eventDates.has(iso) ? "has-event" : ""}" type="button" data-mobile-agenda-date="${iso}">
+            <span>${day.getDate()}</span>
+            <i aria-hidden="true">${eventDates.has(iso) ? "•" : ""}</i>
+          </button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function setupMobileAgendaScrollSync() {
+  if (!isMobileAgenda()) return;
+  if (mobileAgendaScrollObserver) mobileAgendaScrollObserver.disconnect();
+  const days = document.querySelectorAll("#mobileAgendaList [data-mobile-list-day]");
+  if (!days.length || typeof IntersectionObserver === "undefined") return;
+  mobileAgendaScrollObserver = new IntersectionObserver((entries) => {
+    const active = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => Math.abs(a.boundingClientRect.top - 145) - Math.abs(b.boundingClientRect.top - 145))[0];
+    const date = active?.target?.dataset.mobileListDay;
+    if (!date || date === AppState.selectedDate) return;
+    mobileAgendaScrollSyncPending = true;
+    AppState.setSelectedDate(date);
+    setTimeout(() => {
+      mobileAgendaScrollSyncPending = false;
+    }, 120);
+  }, { rootMargin: "-132px 0px -64% 0px", threshold: 0.01 });
+  days.forEach((day) => mobileAgendaScrollObserver.observe(day));
+}
+
+function scrollMobileAgendaToDate(date, behavior = "smooth") {
+  const target = document.querySelector(`#mobileAgendaList [data-mobile-list-day="${date}"]`);
+  if (!target) return;
+  target.scrollIntoView({ behavior, block: "start" });
 }
 
 function renderMonthAgenda(events, today) {

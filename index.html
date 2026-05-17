@@ -263,19 +263,18 @@
 
           <section class="mobile-agenda-shell" id="mobileAgenda" aria-label="Mobiele agenda">
             <div class="mobile-agenda-topbar">
-              <div>
-                <p id="mobileAgendaKicker">Vandaag</p>
-                <h3 id="mobileAgendaTitle">Agenda</h3>
-              </div>
+              <button type="button" data-mobile-agenda-today>Vandaag</button>
+              <h3 id="mobileAgendaTitle">zondag 17 mei</h3>
               <div class="mobile-agenda-tools">
-                <button type="button" data-mobile-agenda-today aria-label="Vandaag">Vandaag</button>
-                <button type="button" aria-label="Zoeken">⌕</button>
-                <button type="button" aria-label="Weergave">☷</button>
-                <button type="button" aria-label="Filters">⚙</button>
+                <button type="button" data-page="settings" aria-label="Instellingen">⚙</button>
                 <button class="mobile-agenda-add-main" type="button" data-mobile-agenda-add aria-label="Toevoegen">+</button>
               </div>
             </div>
-            <div class="mobile-agenda-weekstrip" id="mobileAgendaWeekstrip" aria-label="Week"></div>
+            <div class="mobile-agenda-datebar">
+              <button class="mobile-agenda-month-toggle" type="button" data-mobile-agenda-month-toggle aria-expanded="false" aria-controls="mobileAgendaMonth">⌄</button>
+              <div class="mobile-agenda-weekstrip" id="mobileAgendaWeekstrip" aria-label="Week"></div>
+              <div class="mobile-agenda-month" id="mobileAgendaMonth" hidden></div>
+            </div>
             <div class="mobile-agenda-list" id="mobileAgendaList"></div>
           </section>
 
@@ -292,30 +291,30 @@
                 <label>Start<input id="mobileAgendaStartInput" type="time" /></label>
                 <label>Einde<input id="mobileAgendaEndInput" type="time" /></label>
               </div>
-              <label class="toggle-row"><span>Hele dag</span><input id="mobileAgendaAllDayInput" type="checkbox" /></label>
-              <label>Categorie<select id="mobileAgendaCategoryInput">
-                <option value="school">School</option>
-                <option value="werk">Werk</option>
-                <option value="sport">Sport</option>
-                <option value="vrije tijd">Vrije tijd</option>
-              </select></label>
-              <label>Type<select id="mobileAgendaTypeInput">
-                <option value="appointment">Afspraak</option>
-                <option value="task">Taak</option>
-                <option value="reminder">Reminder</option>
-                <option value="deadline">Deadline</option>
-                <option value="note">Notitie</option>
-              </select></label>
-              <label>Herinnering<select id="mobileAgendaReminderInput">
-                <option value="">Geen</option>
-                <option value="at-time">Op moment zelf</option>
-                <option value="10-min">10 min ervoor</option>
-                <option value="30-min">30 min ervoor</option>
-                <option value="1-hour">1 uur ervoor</option>
-                <option value="1-day">1 dag ervoor</option>
-              </select></label>
               <details>
                 <summary>Meer opties</summary>
+                <label class="toggle-row"><span>Hele dag</span><input id="mobileAgendaAllDayInput" type="checkbox" /></label>
+                <label>Categorie<select id="mobileAgendaCategoryInput">
+                  <option value="school">School</option>
+                  <option value="werk">Werk</option>
+                  <option value="sport">Sport</option>
+                  <option value="vrije tijd">Vrije tijd</option>
+                </select></label>
+                <label>Type<select id="mobileAgendaTypeInput">
+                  <option value="appointment">Afspraak</option>
+                  <option value="task">Taak</option>
+                  <option value="reminder">Reminder</option>
+                  <option value="deadline">Deadline</option>
+                  <option value="note">Notitie</option>
+                </select></label>
+                <label>Herinnering<select id="mobileAgendaReminderInput">
+                  <option value="">Geen</option>
+                  <option value="at-time">Op moment zelf</option>
+                  <option value="10-min">10 min ervoor</option>
+                  <option value="30-min">30 min ervoor</option>
+                  <option value="1-hour">1 uur ervoor</option>
+                  <option value="1-day">1 dag ervoor</option>
+                </select></label>
                 <input id="mobileAgendaLocationInput" type="text" autocomplete="off" placeholder="Locatie" />
                 <select id="mobileAgendaRepeatInput">
                   <option value="">Niet herhalen</option>

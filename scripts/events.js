@@ -378,6 +378,8 @@ function bindMobileAgendaEvents() {
     const dateButton = event.target.closest("[data-mobile-agenda-date]");
     const addButton = event.target.closest("[data-mobile-agenda-add-date], [data-mobile-agenda-add]");
     const todayButton = event.target.closest("[data-mobile-agenda-today]");
+    const monthToggle = event.target.closest("[data-mobile-agenda-month-toggle]");
+    const pageButton = event.target.closest("[data-page]");
     const appointmentButton = event.target.closest("[data-delete-appointment]");
     const dayItemButton = event.target.closest("[data-delete-day-item]");
 
@@ -390,8 +392,21 @@ function bindMobileAgendaEvents() {
       return;
     }
 
+    if (pageButton) {
+      showPage(pageButton.dataset.page);
+      return;
+    }
+
+    if (monthToggle) {
+      mobileAgendaMonthExpanded = !mobileAgendaMonthExpanded;
+      schedulePlanningRender();
+      return;
+    }
+
     if (todayButton) {
-      AppState.setSelectedDate(toISODate(new Date()));
+      const today = toISODate(new Date());
+      AppState.setSelectedDate(today);
+      setTimeout(() => scrollMobileAgendaToDate(today), 60);
       return;
     }
 
@@ -401,7 +416,9 @@ function bindMobileAgendaEvents() {
     }
 
     if (dateButton) {
-      AppState.setSelectedDate(dateButton.dataset.mobileAgendaDate);
+      const date = dateButton.dataset.mobileAgendaDate;
+      AppState.setSelectedDate(date);
+      setTimeout(() => scrollMobileAgendaToDate(date), 60);
     }
   });
 
@@ -421,7 +438,9 @@ function openMobileAgendaModal(date = AppState.selectedDate) {
   modal.hidden = false;
   document.body.classList.add("mobile-agenda-entry-open");
   document.querySelector("#mobileAgendaDateInput").value = date || toISODate(new Date());
-  document.querySelector("#mobileAgendaTitleInput").focus();
+  document.querySelector("#mobileAgendaTypeInput").value = "appointment";
+  document.querySelector("#mobileAgendaCategoryInput").value = "vrije tijd";
+  setTimeout(() => document.querySelector("#mobileAgendaTitleInput")?.focus(), 120);
 }
 
 function closeMobileAgendaModal() {
